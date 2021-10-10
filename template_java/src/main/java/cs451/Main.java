@@ -74,7 +74,7 @@ public class Main {
             broadcast(hostHashMap.get(parser.myId()), hostHashMap.get(target.getId()), target.getnMessages());
         }else{
             BoradcastReceiver receiver = new BoradcastReceiver();
-            receiver.receive(hostHashMap.get(parser.myId()));
+            receiver.receive(hostHashMap.get(parser.myId()), target.getnMessages());
         }
 
         // After a process finishes broadcasting,
@@ -87,6 +87,6 @@ public class Main {
 
     public static void broadcast(Host sourceHost, Host targetHost, int nMessages){
         Broadcaster bc = new Broadcaster();
-        bc.send(sourceHost, targetHost);
+        bc.send(sourceHost, targetHost, nMessages);
     }
 }
