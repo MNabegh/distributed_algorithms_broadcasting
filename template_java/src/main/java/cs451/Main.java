@@ -1,9 +1,11 @@
 package cs451;
 
+import javax.sound.midi.Receiver;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.HashMap;
 
 public class Main {
 
@@ -56,7 +58,24 @@ public class Main {
 
         System.out.println("Doing some initialization\n");
 
+        Target target = new Target();
+        target.populate(parser.config());
+        target.display();
+
+        HashMap<Integer, Host> hostHashMap = new HashMap<>();
+
+        for (Host host: parser.hosts())
+            hostHashMap.put(host.getId(), host);
+
+
         System.out.println("Broadcasting and delivering messages...\n");
+
+        if (parser.myId() != target.getId()){
+            broadcast(hostHashMap.get(parser.myId()), hostHashMap.get(target.getId()), target.getnMessages());
+        }else{
+            BoradcastReceiver receiver = new BoradcastReceiver();
+            receiver.receive(hostHashMap.get(parser.myId()));
+        }
 
         // After a process finishes broadcasting,
         // it waits forever for the delivery of messages.
@@ -64,5 +83,10 @@ public class Main {
             // Sleep for 1 hour
             Thread.sleep(60 * 60 * 1000);
         }
+    }
+
+    public static void broadcast(Host sourceHost, Host targetHost, int nMessages){
+        Broadcaster bc = new Broadcaster();
+        bc.send(sourceHost, targetHost);
     }
 }
