@@ -63,12 +63,15 @@ public class PerfectLinkServer {
         Host[] senders = senderMap.values().toArray(new Host[0]);
         this.senderThreadMap = new HashMap<>();
 
+        // Thread to broadcast up status to all senders
         Thread broadcastingUP = new Thread(() -> {
+            // Semaphore to control number of threads in case stress testing proved that too many threads are being created
             Semaphore nHosts = new Semaphore(senders.length);
 
             for(int i=1; i<=senders.length; i++){
                 try {
                     nHosts.acquire();
+                    // Thread to send status to another host
                     Thread senderThread = new Thread(new StatusBroadcaster(senderMap.get(i), nHosts));
                     senderThread.start();
                     senderThreadMap.put(i, senderThread);
@@ -81,6 +84,7 @@ public class PerfectLinkServer {
 
         broadcastingUP.start();
     }
+
 
     public void receive(int nMessages) {
         try {
