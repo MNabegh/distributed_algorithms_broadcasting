@@ -1,10 +1,9 @@
 package cs451;
 
-import javax.sound.midi.Receiver;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.Socket;
+import cs451.perfectLink.PerfectLinkClient;
+import cs451.perfectLink.PerfectLinkServer;
+import cs451.perfectLink.Target;
+
 import java.util.HashMap;
 
 public class Main {
@@ -63,18 +62,25 @@ public class Main {
         target.display();
 
         HashMap<Integer, Host> hostHashMap = new HashMap<>();
+        int maxId = 0;
 
-        for (Host host: parser.hosts())
-            hostHashMap.put(host.getId(), host);
+        for (Host host: parser.hosts()) {
+            int currId = host.getId();
+            hostHashMap.put(currId, host);
+            if(currId != target.getId() && currId > maxId)
+                maxId = currId;
+        }
 
 
         System.out.println("Broadcasting and delivering messages...\n");
 
         if (parser.myId() != target.getId()){
-            broadcast(hostHashMap.get(parser.myId()), hostHashMap.get(target.getId()), target.getnMessages());
+            sendMessagesToTarget(hostHashMap.get(parser.myId()), hostHashMap.get(target.getId()), target.getnMessages());
         }else{
-            BoradcastReceiver receiver = new BoradcastReceiver();
-            receiver.receive(hostHashMap.get(parser.myId()), target.getnMessages());
+            PerfectLinkServer receiver = new PerfectLinkServer(maxId - 1, hostHashMap.get(parser.myId()));
+            hostHashMap.remove(parser.myId());
+            receiver.broadcastStatus(hostHashMap);
+            receiver.receive(target.getnMessages());
         }
 
         // After a process finishes broadcasting,
@@ -85,8 +91,9 @@ public class Main {
         }
     }
 
-    public static void broadcast(Host sourceHost, Host targetHost, int nMessages){
-        Broadcaster bc = new Broadcaster();
-        bc.send(sourceHost, targetHost, nMessages);
+    public static void sendMessagesToTarget(Host sourceHost, Host targetHost, int nMessages){
+        PerfectLinkClient bc = new PerfectLinkClient();
+        bc.waitForUpLink(sourceHost);
+        bc.send(sourceHost.getId(), targetHost, nMessages);
     }
 }

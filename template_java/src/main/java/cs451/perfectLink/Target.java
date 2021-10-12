@@ -1,4 +1,4 @@
-package cs451;
+package cs451.perfectLink;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
