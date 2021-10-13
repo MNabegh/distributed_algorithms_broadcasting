@@ -77,7 +77,7 @@ public class Main {
         if (parser.myId() != target.getId()){
             sendMessagesToTarget(hostHashMap.get(parser.myId()), hostHashMap.get(target.getId()), target.getnMessages());
         }else{
-            PerfectLinkServer receiver = new PerfectLinkServer(maxId - 1, hostHashMap.get(parser.myId()));
+            PerfectLinkServer receiver = new PerfectLinkServer(hostHashMap.size() - 1, hostHashMap.get(parser.myId()));
             hostHashMap.remove(parser.myId());
             receiver.broadcastStatus(hostHashMap);
             receiver.receive(target.getnMessages());
@@ -92,8 +92,9 @@ public class Main {
     }
 
     public static void sendMessagesToTarget(Host sourceHost, Host targetHost, int nMessages){
-        PerfectLinkClient bc = new PerfectLinkClient();
+        PerfectLinkClient bc = new PerfectLinkClient(nMessages);
         bc.waitForUpLink(sourceHost);
-        bc.send(sourceHost.getId(), targetHost, nMessages);
+        bc.receiveAck(sourceHost);
+        bc.send(sourceHost.getId(), targetHost);
     }
 }

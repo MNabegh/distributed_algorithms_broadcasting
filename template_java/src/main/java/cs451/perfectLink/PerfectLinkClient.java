@@ -9,45 +9,95 @@ import java.net.DatagramPacket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.util.StringTokenizer;
 
 public class PerfectLinkClient {
+    int message;
+    int nMessages;
+
+    public PerfectLinkClient(int nMessages) {
+        this.nMessages = nMessages;
+        this.message = 1;
+    }
 
     public void waitForUpLink(Host sourceHost) {
         DatagramSocket receiveSocket = null;
         try {
             receiveSocket = new DatagramSocket(sourceHost.getPort());
 
+            System.out.println("Waiting for uplink");
+
             while (true) {
                 byte[] upMessage = new byte[1024];
                 DatagramPacket upPacket = new DatagramPacket(upMessage, 1024);
                 receiveSocket.receive(upPacket);
                 String str = new String(upPacket.getData(), 0, upPacket.getLength());
-                if (str == "U")
+                System.out.println("received message: "+ str + " " + str.length());
+                if (str.charAt(0) == 'U')
                     break;
             }
+            System.out.println("Link is ready");
         } catch (SocketException e) {
             e.printStackTrace();
         } catch (IOException ioException) {
             ioException.printStackTrace();
+        } finally {
+            if(receiveSocket != null)
+                receiveSocket.close();
         }
     }
 
-    public void send(int sourceHostId, Host targetHost, int nMessages) {
+    public void receiveAck(Host sourceHost){
+        Thread ackThread = new Thread(() -> {
+            DatagramSocket receiveSocket = null;
+            try {
+                receiveSocket = new DatagramSocket(sourceHost.getPort());
+
+                while (message <= nMessages) {
+                    System.out.println("Waiting to receive");
+                    byte[] upMessage = new byte[1024];
+                    DatagramPacket upPacket = new DatagramPacket(upMessage, 1024);
+                    receiveSocket.receive(upPacket);
+                    String str = new String(upPacket.getData(), 0, upPacket.getLength());
+                    System.out.println("received ack " + str);
+                    StringTokenizer stringTokenizer = new StringTokenizer(str);
+                    stringTokenizer.nextToken();
+                    int messageAcked = Integer.parseInt(stringTokenizer.nextToken());
+
+                    message = messageAcked + 1;
+                    System.out.println(str);
+                }
+                System.out.println("All messages acked");
+            } catch (SocketException e) {
+                e.printStackTrace();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            } finally {
+                if(receiveSocket != null)
+                    receiveSocket.close();
+            }
+        });
+        ackThread.start();
+    }
+
+    public void send(int sourceHostId, Host targetHost) {
         try {
 
 
             DatagramSocket sendSocket = new DatagramSocket();
             InetAddress address = InetAddress.getByName(targetHost.getIp());
             int port = targetHost.getPort();
-            for (int i = 1; i <= nMessages; i++) {
-                StringBuilder sb = new StringBuilder();
-                sb.append(sourceHostId);
-                sb.append(' ');
-                sb.append(i);
-                byte[] message = sb.toString().getBytes(StandardCharsets.UTF_8);
-                System.out.println("Message is " + message.length + " bytes");
-                DatagramPacket m = new DatagramPacket(message, message.length, address, port);
-                sendSocket.send(m);
+            int i;
+            while (message <= nMessages) {
+                for (i = message; i <= message + 3 && i <= nMessages; i++) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(sourceHostId);
+                    sb.append(' ');
+                    sb.append(i);
+                    byte[] message = sb.toString().getBytes(StandardCharsets.UTF_8);
+                    DatagramPacket m = new DatagramPacket(message, message.length, address, port);
+                    sendSocket.send(m);
+                }
             }
             sendSocket.close();
         } catch (SocketException socketException) {
