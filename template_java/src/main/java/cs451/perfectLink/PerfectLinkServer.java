@@ -2,24 +2,27 @@ package cs451.perfectLink;
 
 import cs451.Host;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.DatagramPacket;
+import java.net.SocketException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.StringTokenizer;
-//import java.util.concurrent.Semaphore;
 
 class StatusBroadcaster extends Thread {
     private final Host sender;
-    //    private final Semaphore nHosts;
     private String message;
 
     public StatusBroadcaster(Host sender) {
         this.sender = sender;
-//        this.nHosts = nHosts;
         this.message = "U";
     }
 
@@ -35,10 +38,8 @@ class StatusBroadcaster extends Thread {
                 // Backoff
                 Thread.sleep(random.nextInt(100));
             }
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
-        } catch (InterruptedException interruptedException) {
-            interruptedException.printStackTrace();
         }
     }
 
@@ -82,11 +83,11 @@ public class PerfectLinkServer {
         broadcastingUP.start();
     }
 
-    public void receive(int nMessages) {
+    public void receive(int nMessages, String outputPath) {
         try {
             DatagramSocket udpSocket = new DatagramSocket(receiverHost.getPort());
 
-            System.out.println("Messages to wait for: " + (nMessages + 1) * nSenders);
+            System.out.println("Messages to wait for: " + (nMessages  * nSenders));
 
             while (totalReceived < (nMessages + 1) * nSenders) {
                 byte[] buf = new byte[1024];
@@ -119,14 +120,10 @@ public class PerfectLinkServer {
                 stringBuilder.append(messageOrder);
 
                 System.out.println(stringBuilder);
-                System.out.println("total received is " + totalReceived);
+                logMessage(stringBuilder.toString(), outputPath);
             }
 
             System.out.println("Loop has ended");
-
-            for (StatusBroadcaster senderThread : senderThreadMap.values())
-                senderThread.interrupt();
-
 
             udpSocket.close();
             System.out.println("Received all expected messages");
@@ -134,5 +131,21 @@ public class PerfectLinkServer {
             ioException.printStackTrace();
         }
 
+    }
+
+    private void logMessage(String message, String outputPath) {
+        Thread logging = new Thread(() -> {
+            try (FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
+                 FileChannel channel = fileOutputStream.getChannel();
+                 FileLock lock = channel.lock()) {
+                channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
+        });
+
+        logging.start();
     }
 }

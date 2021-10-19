@@ -17,12 +17,7 @@ public class Main {
     }
 
     private static void initSignalHandlers() {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            @Override
-            public void run() {
-                handleSignal();
-            }
-        });
+        Runtime.getRuntime().addShutdownHook(new Thread(Main::handleSignal));
     }
 
     public static void main(String[] args) throws InterruptedException {
@@ -75,12 +70,16 @@ public class Main {
         System.out.println("Broadcasting and delivering messages...\n");
 
         if (parser.myId() != target.getId()){
-            sendMessagesToTarget(hostHashMap.get(parser.myId()), hostHashMap.get(target.getId()), target.getnMessages());
+            sendMessagesToTarget(
+                    hostHashMap.get(parser.myId()),
+                    hostHashMap.get(target.getId()),
+                    target.getNMessages(),
+                    parser.output());
         }else{
             PerfectLinkServer receiver = new PerfectLinkServer(hostHashMap.size() - 1, hostHashMap.get(parser.myId()));
             hostHashMap.remove(parser.myId());
             receiver.broadcastStatus(hostHashMap);
-            receiver.receive(target.getnMessages());
+            receiver.receive(target.getNMessages(), parser.output());
         }
 
         // After a process finishes broadcasting,
@@ -91,10 +90,10 @@ public class Main {
         }
     }
 
-    public static void sendMessagesToTarget(Host sourceHost, Host targetHost, int nMessages){
+    public static void sendMessagesToTarget(Host sourceHost, Host targetHost, int nMessages, String outputPath){
         PerfectLinkClient bc = new PerfectLinkClient(nMessages);
         bc.waitForUpLink(sourceHost);
         bc.receiveAck(sourceHost);
-        bc.send(sourceHost.getId(), targetHost);
+        bc.send(sourceHost.getId(), targetHost, outputPath);
     }
 }

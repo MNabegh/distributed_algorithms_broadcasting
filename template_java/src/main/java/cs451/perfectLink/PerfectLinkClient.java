@@ -2,16 +2,22 @@ package cs451.perfectLink;
 
 import cs451.Host;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.DatagramPacket;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.util.StringTokenizer;
 
 public class PerfectLinkClient {
     int message;
     int nMessages;
+    int messageLogged;
 
     public PerfectLinkClient(int nMessages) {
         this.nMessages = nMessages;
@@ -61,9 +67,9 @@ public class PerfectLinkClient {
                     int messageAcked = Integer.parseInt(stringTokenizer.nextToken());
 
                     message = messageAcked + 1;
-                    System.out.println(str);
                 }
-                System.out.println("All messages acked");
+
+                System.out.println("All messages acknowledged");
             } catch (IOException ioException) {
                 ioException.printStackTrace();
             } finally {
@@ -74,7 +80,7 @@ public class PerfectLinkClient {
         ackThread.start();
     }
 
-    public void send(int sourceHostId, Host targetHost) {
+    public void send(int sourceHostId, Host targetHost, String outputPath) {
         try {
 
 
@@ -84,10 +90,17 @@ public class PerfectLinkClient {
             int i;
             while (message <= nMessages) {
                 for (i = message; i <= message + 3 && i <= nMessages; i++) {
+                    
                     String str = sourceHostId + " " + i;
                     byte[] message = str.getBytes(StandardCharsets.UTF_8);
                     DatagramPacket m = new DatagramPacket(message, message.length, address, port);
                     sendSocket.send(m);
+
+                    if(i > messageLogged)
+                    {
+                        logMessage(str+"\n", outputPath);
+                        messageLogged++;
+                    }
                 }
             }
             sendSocket.close();
@@ -95,5 +108,21 @@ public class PerfectLinkClient {
             ioException.printStackTrace();
         }
 
+    }
+
+    private void logMessage(String message, String outputPath) {
+        Thread logging = new Thread(() -> {
+            try (FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
+                 FileChannel channel = fileOutputStream.getChannel();
+                 FileLock lock = channel.lock()) {
+                channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
+        });
+
+        logging.start();
     }
 }
