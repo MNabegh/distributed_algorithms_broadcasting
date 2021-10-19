@@ -105,7 +105,6 @@ public class PerfectLinkServer {
 
                 if (messageOrder > nMessages) {
                     totalReceived++;
-                    System.out.println("total received is " + totalReceived);
                     continue;
                 }
 
@@ -118,9 +117,10 @@ public class PerfectLinkServer {
                 stringBuilder.append(receiverHost.getId());
                 stringBuilder.append(' ');
                 stringBuilder.append(messageOrder);
+                stringBuilder.append('\n');
 
                 System.out.println(stringBuilder);
-                logMessage(stringBuilder.toString(), outputPath);
+//                logMessage(stringBuilder.toString(), outputPath);
             }
 
             System.out.println("Loop has ended");
@@ -135,10 +135,16 @@ public class PerfectLinkServer {
 
     private void logMessage(String message, String outputPath) {
         Thread logging = new Thread(() -> {
-            try (FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
-                 FileChannel channel = fileOutputStream.getChannel();
-                 FileLock lock = channel.lock()) {
-                channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
+            try {
+                    while(true) {
+                        FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
+                        FileChannel channel = fileOutputStream.getChannel();
+                        FileLock lock = channel.tryLock();
+                        if(lock == null)
+                            continue;
+                        channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
+                        lock.release();
+                    }
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException ioException) {

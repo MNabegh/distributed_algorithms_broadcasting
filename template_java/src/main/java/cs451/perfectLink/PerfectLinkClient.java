@@ -112,10 +112,16 @@ public class PerfectLinkClient {
 
     private void logMessage(String message, String outputPath) {
         Thread logging = new Thread(() -> {
-            try (FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
-                 FileChannel channel = fileOutputStream.getChannel();
-                 FileLock lock = channel.lock()) {
-                channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
+            try {
+                while(true) {
+                    FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
+                    FileChannel channel = fileOutputStream.getChannel();
+                    FileLock lock = channel.tryLock();
+                    if(lock == null)
+                        continue;
+                    channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
+                    lock.release();
+                }
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException ioException) {
