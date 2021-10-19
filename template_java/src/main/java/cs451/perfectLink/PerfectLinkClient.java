@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.DatagramPacket;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.StringTokenizer;
 
@@ -37,8 +35,6 @@ public class PerfectLinkClient {
                     break;
             }
             System.out.println("Link is ready");
-        } catch (SocketException e) {
-            e.printStackTrace();
         } catch (IOException ioException) {
             ioException.printStackTrace();
         } finally {
@@ -68,8 +64,6 @@ public class PerfectLinkClient {
                     System.out.println(str);
                 }
                 System.out.println("All messages acked");
-            } catch (SocketException e) {
-                e.printStackTrace();
             } catch (IOException ioException) {
                 ioException.printStackTrace();
             } finally {
@@ -90,20 +84,13 @@ public class PerfectLinkClient {
             int i;
             while (message <= nMessages) {
                 for (i = message; i <= message + 3 && i <= nMessages; i++) {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(sourceHostId);
-                    sb.append(' ');
-                    sb.append(i);
-                    byte[] message = sb.toString().getBytes(StandardCharsets.UTF_8);
+                    String str = sourceHostId + " " + i;
+                    byte[] message = str.getBytes(StandardCharsets.UTF_8);
                     DatagramPacket m = new DatagramPacket(message, message.length, address, port);
                     sendSocket.send(m);
                 }
             }
             sendSocket.close();
-        } catch (SocketException socketException) {
-            socketException.printStackTrace();
-        } catch (UnknownHostException unknownHostException) {
-            unknownHostException.printStackTrace();
         } catch (IOException ioException) {
             ioException.printStackTrace();
         }
