@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.DatagramPacket;
-import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -16,10 +15,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.StringTokenizer;
+import java.util.concurrent.locks.ReentrantLock;
 
 class StatusBroadcaster extends Thread {
     private final Host sender;
     private String message;
+
 
     public StatusBroadcaster(Host sender) {
         this.sender = sender;
@@ -49,16 +50,20 @@ class StatusBroadcaster extends Thread {
 }
 
 public class PerfectLinkServer {
-    int nSenders;
-    Host receiverHost;
-    HashMap<Integer, StatusBroadcaster> senderThreadMap;
-    int[] receivedCount;
-    int totalReceived;
+    private final int nSenders;
+    private final Host receiverHost;
+    private HashMap<Integer, StatusBroadcaster> senderThreadMap;
+    private int[] receivedCount;
+    private int totalReceived;
+    private ReentrantLock innerLock;
+    private int messageToBeLogged;
 
     public PerfectLinkServer(int nSenders, Host receiverHost) {
         this.nSenders = nSenders;
         this.receiverHost = receiverHost;
         this.receivedCount = new int[nSenders + 1];
+        this.innerLock = new ReentrantLock();
+        this.messageToBeLogged = 1;
     }
 
     public void broadcastStatus(HashMap<Integer, Host> senderMap) {
@@ -120,7 +125,7 @@ public class PerfectLinkServer {
                 stringBuilder.append('\n');
 
                 System.out.println(stringBuilder);
-//                logMessage(stringBuilder.toString(), outputPath);
+                logMessage(messageOrder, stringBuilder.toString(), outputPath);
             }
 
             System.out.println("Loop has ended");
@@ -133,22 +138,31 @@ public class PerfectLinkServer {
 
     }
 
-    private void logMessage(String message, String outputPath) {
+    private void logMessage(int order, String message, String outputPath) {
+        System.out.println("Trying to log message: " + message);
         Thread logging = new Thread(() -> {
             try {
-                    while(true) {
-                        FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
-                        FileChannel channel = fileOutputStream.getChannel();
-                        FileLock lock = channel.tryLock();
-                        if(lock == null)
-                            continue;
+                while(true) {
+                    if(order !=messageToBeLogged)
+                        continue;
+                    if(!innerLock.tryLock())
+                        continue;
+                    FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
+                    FileChannel channel = fileOutputStream.getChannel();
+                    FileLock lock = channel.tryLock();
+                    if(lock != null){
                         channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
                         lock.release();
+                        innerLock.unlock();
+                        messageToBeLogged++;
+                        break;
                     }
+                    innerLock.unlock();
+                }
             } catch (FileNotFoundException e) {
-                e.printStackTrace();
+                System.out.println("File Not Found for message: " + message);
             } catch (IOException ioException) {
-                ioException.printStackTrace();
+                System.out.println("IOExecption for message: " + message);
             }
         });
 

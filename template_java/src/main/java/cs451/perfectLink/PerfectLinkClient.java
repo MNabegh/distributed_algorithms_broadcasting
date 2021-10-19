@@ -16,14 +16,17 @@ import java.util.StringTokenizer;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class PerfectLinkClient {
-    int message;
-    int nMessages;
-    int messageLogged;
-    ReentrantLock innerLock;
+    private int message;
+    private final int nMessages;
+    private int messageLogged;
+    private ReentrantLock innerLock;
+    private int messageToBeLogged;
 
     public PerfectLinkClient(int nMessages) {
         this.nMessages = nMessages;
         this.message = 1;
+        this.innerLock = new ReentrantLock();
+        this.messageToBeLogged = 1;
     }
 
     public void waitForUpLink(Host sourceHost) {
@@ -100,7 +103,7 @@ public class PerfectLinkClient {
 
                     if(i > messageLogged)
                     {
-                        logMessage(str+"\n", outputPath);
+                        logMessage(i, str+"\n", outputPath);
                         messageLogged++;
                     }
                 }
@@ -112,22 +115,27 @@ public class PerfectLinkClient {
 
     }
 
-    private void logMessage(String message, String outputPath) {
+    private void logMessage(int order, String message, String outputPath) {
+        System.out.println("Trying to log message: " + message);
         Thread logging = new Thread(() -> {
             try {
                 while(true) {
-//                    if(!innerLock.tryLock())
-//                        continue;
+                    if(order !=messageToBeLogged)
+                        continue;
+                    if(!innerLock.tryLock())
+                        continue;
                     FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
                     FileChannel channel = fileOutputStream.getChannel();
                     FileLock lock = channel.tryLock();
                     if(lock != null){
                         channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
                         lock.release();
+                        innerLock.unlock();
+                        messageToBeLogged++;
                         break;
                     }
+                    innerLock.unlock();
                 }
-//                innerLock.unlock();
             } catch (FileNotFoundException e) {
                 System.out.println("File Not Found for message: " + message);
             } catch (IOException ioException) {
