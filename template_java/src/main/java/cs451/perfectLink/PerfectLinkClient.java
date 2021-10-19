@@ -13,11 +13,13 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.util.StringTokenizer;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class PerfectLinkClient {
     int message;
     int nMessages;
     int messageLogged;
+    ReentrantLock innerLock;
 
     public PerfectLinkClient(int nMessages) {
         this.nMessages = nMessages;
@@ -114,18 +116,22 @@ public class PerfectLinkClient {
         Thread logging = new Thread(() -> {
             try {
                 while(true) {
+//                    if(!innerLock.tryLock())
+//                        continue;
                     FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
                     FileChannel channel = fileOutputStream.getChannel();
                     FileLock lock = channel.tryLock();
-                    if(lock == null)
-                        continue;
-                    channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
-                    lock.release();
+                    if(lock != null){
+                        channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
+                        lock.release();
+                        break;
+                    }
                 }
+//                innerLock.unlock();
             } catch (FileNotFoundException e) {
-                e.printStackTrace();
+                System.out.println("File Not Found for message: " + message);
             } catch (IOException ioException) {
-                ioException.printStackTrace();
+                System.out.println("IOExecption for message: " + message);
             }
         });
 
