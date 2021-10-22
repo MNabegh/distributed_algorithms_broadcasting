@@ -20,12 +20,13 @@ public class PerfectLinkClient {
     private final int nMessages;
     private int messageLogged;
     private ReentrantLock innerLock;
-    private int messageToBeLogged;
+    private volatile int messageToBeLogged;
 
     public PerfectLinkClient(int nMessages) {
         this.nMessages = nMessages;
         this.message = 1;
         this.innerLock = new ReentrantLock();
+        this.messageLogged = 1;
         this.messageToBeLogged = 1;
     }
 
@@ -88,7 +89,6 @@ public class PerfectLinkClient {
     public void send(int sourceHostId, Host targetHost, String outputPath) {
         try {
 
-
             DatagramSocket sendSocket = new DatagramSocket();
             InetAddress address = InetAddress.getByName(targetHost.getIp());
             int port = targetHost.getPort();
@@ -101,10 +101,10 @@ public class PerfectLinkClient {
                     DatagramPacket m = new DatagramPacket(message, message.length, address, port);
                     sendSocket.send(m);
 
-                    if(i > messageLogged)
+                    if(i == messageLogged)
                     {
-                        logMessage(i, str+"\n", outputPath);
                         messageLogged++;
+                        logMessage(i, str+"\n", outputPath);
                     }
                 }
             }
@@ -116,26 +116,32 @@ public class PerfectLinkClient {
     }
 
     private void logMessage(int order, String message, String outputPath) {
-        System.out.println("Trying to log message: " + message);
         Thread logging = new Thread(() -> {
             try {
+
                 while(true) {
-                    if(order !=messageToBeLogged)
+
+                    if(order != messageToBeLogged)
                         continue;
+
                     if(!innerLock.tryLock())
                         continue;
+
                     FileOutputStream fileOutputStream = new FileOutputStream(outputPath, true);
                     FileChannel channel = fileOutputStream.getChannel();
                     FileLock lock = channel.tryLock();
-                    if(lock != null){
+                    if(lock != null) {
                         channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
                         lock.release();
-                        innerLock.unlock();
                         messageToBeLogged++;
+                        System.out.println("Lock released after message: " + message);
+                        System.out.println("Message to be logged next is " + messageToBeLogged);
+                        innerLock.unlock();
                         break;
                     }
-                    innerLock.unlock();
                 }
+
+//                innerLock.unlock();
             } catch (FileNotFoundException e) {
                 System.out.println("File Not Found for message: " + message);
             } catch (IOException ioException) {

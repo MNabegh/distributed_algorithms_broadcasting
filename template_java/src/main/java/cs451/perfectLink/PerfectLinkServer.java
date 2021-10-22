@@ -56,14 +56,14 @@ public class PerfectLinkServer {
     private int[] receivedCount;
     private int totalReceived;
     private ReentrantLock innerLock;
-    private int messageToBeLogged;
+    private volatile int [] messageToBeLogged;
 
     public PerfectLinkServer(int nSenders, Host receiverHost) {
         this.nSenders = nSenders;
         this.receiverHost = receiverHost;
         this.receivedCount = new int[nSenders + 1];
         this.innerLock = new ReentrantLock();
-        this.messageToBeLogged = 1;
+        this.messageToBeLogged = new int[nSenders + 1];
     }
 
     public void broadcastStatus(HashMap<Integer, Host> senderMap) {
@@ -125,7 +125,7 @@ public class PerfectLinkServer {
                 stringBuilder.append('\n');
 
                 System.out.println(stringBuilder);
-                logMessage(messageOrder, stringBuilder.toString(), outputPath);
+                logMessage(senderID, messageOrder, stringBuilder.toString(), outputPath);
             }
 
             System.out.println("Loop has ended");
@@ -138,12 +138,12 @@ public class PerfectLinkServer {
 
     }
 
-    private void logMessage(int order, String message, String outputPath) {
+    private void logMessage(int senderID, int order, String message, String outputPath) {
         System.out.println("Trying to log message: " + message);
         Thread logging = new Thread(() -> {
             try {
                 while(true) {
-                    if(order !=messageToBeLogged)
+                    if(order != (messageToBeLogged[senderID - 1] + 1))
                         continue;
                     if(!innerLock.tryLock())
                         continue;
@@ -153,11 +153,10 @@ public class PerfectLinkServer {
                     if(lock != null){
                         channel.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
                         lock.release();
+                        messageToBeLogged[senderID - 1]++;
                         innerLock.unlock();
-                        messageToBeLogged++;
                         break;
                     }
-                    innerLock.unlock();
                 }
             } catch (FileNotFoundException e) {
                 System.out.println("File Not Found for message: " + message);
