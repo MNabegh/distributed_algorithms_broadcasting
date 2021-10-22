@@ -57,6 +57,7 @@ public class PerfectLinkServer {
     private int totalReceived;
     private ReentrantLock innerLock;
     private volatile int [] messageToBeLogged;
+    private static boolean terminated;
 
     public PerfectLinkServer(int nSenders, Host receiverHost) {
         this.nSenders = nSenders;
@@ -88,7 +89,7 @@ public class PerfectLinkServer {
         broadcastingUP.start();
     }
 
-    public void receive(int nMessages, String outputPath) {
+    public void receive(long nMessages, String outputPath) {
         try {
             DatagramSocket udpSocket = new DatagramSocket(receiverHost.getPort());
 
@@ -124,7 +125,13 @@ public class PerfectLinkServer {
                 stringBuilder.append(messageOrder);
                 stringBuilder.append('\n');
 
-                System.out.println(stringBuilder);
+                if(terminated){
+                    for (StatusBroadcaster sb: senderThreadMap.values())
+                        sb.interrupt();
+
+                    break;
+                }
+
                 logMessage(senderID, messageOrder, stringBuilder.toString(), outputPath);
             }
 
@@ -166,5 +173,9 @@ public class PerfectLinkServer {
         });
 
         logging.start();
+    }
+
+    public static void setTerminated(){
+        terminated = true;
     }
 }

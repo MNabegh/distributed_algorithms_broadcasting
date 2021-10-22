@@ -5,7 +5,7 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class Target {
-    private int nMessages;
+    private long nMessages;
     private int id;
 
     public void populate(String path) {
@@ -32,7 +32,7 @@ public class Target {
         return id;
     }
 
-    public int getNMessages() {
+    public long getNMessages() {
         return nMessages;
     }
 }

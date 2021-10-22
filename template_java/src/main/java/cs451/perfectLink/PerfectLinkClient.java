@@ -17,12 +17,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class PerfectLinkClient {
     private int message;
-    private final int nMessages;
+    private final long nMessages;
     private int messageLogged;
     private ReentrantLock innerLock;
     private volatile int messageToBeLogged;
+    private static boolean terminated;
 
-    public PerfectLinkClient(int nMessages) {
+    public PerfectLinkClient(long nMessages) {
         this.nMessages = nMessages;
         this.message = 1;
         this.innerLock = new ReentrantLock();
@@ -99,6 +100,10 @@ public class PerfectLinkClient {
                     String str = sourceHostId + " " + i;
                     byte[] message = str.getBytes(StandardCharsets.UTF_8);
                     DatagramPacket m = new DatagramPacket(message, message.length, address, port);
+
+                    if(terminated)
+                        break;
+
                     sendSocket.send(m);
 
                     if(i == messageLogged)
@@ -148,7 +153,10 @@ public class PerfectLinkClient {
                 System.out.println("IOExecption for message: " + message);
             }
         });
-
         logging.start();
+    }
+
+    public static void setTerminated(){
+        terminated = true;
     }
 }

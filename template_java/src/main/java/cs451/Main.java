@@ -11,6 +11,8 @@ public class Main {
     private static void handleSignal() {
         //immediately stop network packet processing
         System.out.println("Immediately stopping network packet processing.");
+        PerfectLinkServer.setTerminated();
+        PerfectLinkClient.setTerminated();
 
         //write/flush output file if necessary
         System.out.println("Writing output.");
@@ -90,7 +92,7 @@ public class Main {
         }
     }
 
-    public static void sendMessagesToTarget(Host sourceHost, Host targetHost, int nMessages, String outputPath){
+    public static void sendMessagesToTarget(Host sourceHost, Host targetHost, long nMessages, String outputPath){
         PerfectLinkClient bc = new PerfectLinkClient(nMessages);
         bc.waitForUpLink(sourceHost);
         bc.receiveAck(sourceHost);
